@@ -10,3 +10,7 @@ edition = "2018"
 # serial = "0.4.0"
 serialport = "4.0.1"
 # robust-arduino-serial = "0.1.1"
+protobuf = "2.25.1"
+
+[build-dependencies]
+protobuf-codegen-pure = "2.25.1"
