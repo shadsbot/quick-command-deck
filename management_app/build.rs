@@ -9,10 +9,11 @@ fn main() {
         .out_dir("src/protos")
         .include("../")
         .input("../communique.proto")
-        .run() {
-            Err(e) => {
-                println!("cargo:error={:?}", e)
-            }
-            Ok(_) => {},
+        .run()
+    {
+        Err(e) => {
+            println!("cargo:error={:?}", e)
         }
+        Ok(_) => {}
+    }
 }
