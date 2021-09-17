@@ -1,12 +1,4 @@
-use std::{
-    convert::TryInto,
-    io::{self, Read},
-    sync::mpsc,
-    thread,
-    time::Duration,
-};
-// use serial::SerialPort;
-// use serial::prelude::*;
+use std::{convert::TryInto, io::Read, thread, time::Duration};
 
 mod protos;
 use protobuf::Message;
