@@ -1,3 +1,6 @@
+#include "pb_encode.h"
+#include "pb_decode.h"
+#include "communique.pb.h"
 
 // Global Constants disgused as program settings
 const int NUMBER_OF_BUTTONS = 3;
@@ -34,7 +37,7 @@ KeyButton buttons[] = { KeyButton(6), KeyButton(7), KeyButton(8) };
 // Called once on startup
 void setup() {
     Serial.begin(115200);
-    while(!Serial);
+    while(!Serial); // wait for serial connection
 }
 
 // Called every tick
@@ -43,18 +46,11 @@ void loop() {
     if (buttons[i].valid_press()) {
       if (buttons[i].pressed()) {
         char buffer[256];
-        sprintf(buffer, "Button on pin %d was pressed", buttons[i].pin());
-        Serial.print(buffer);
+        ButtonPushed bp_message = ButtonPushed{i};
+        pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+        pb_encode(&stream, ButtonPushed_fields, &bp_message);
+        Serial.write(buffer, stream.bytes_written);
       }
     }
   }
-}
-
-bool same(int a[], int b[]) {
-  for (int i = 0; i < sizeof a / *a; i++) {
-    if (a[i] != b[i]) {
-      return false;
-    }
-  }
-  return true;
 }
