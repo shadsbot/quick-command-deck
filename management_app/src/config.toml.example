@@ -1,0 +1,39 @@
+[config]
+port = "/dev/ttyUSB0"
+baudrate = 115200
+
+[commands]
+
+    [commands.button_1]
+    id = 1
+    # Command to run when button pushed
+    command = "echo button 1"
+    # Message to log internally
+    log_message = "Doing thing 1"
+    # Icon to display above label
+    icon = [
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0
+    ]
+    # Label when idle
+    label = "1"
+
+    [commands.button_2]
+    id = 2
+    command = "echo button 2"
+    log_message = "Doing thing 2"
+    icon = []
+    label = "2"
+
+    [commands.button_3]
+    id = 3
+    command = "echo button 3"
+    log_message = "Doing thing 3"
+    icon = []
+    label = "3"
