@@ -22,8 +22,6 @@ fn main() {
         .open()
         .expect("Failed to open port");
 
-    let chan_clear_buf = input_service();
-
     loop {
         println!(
             "Bytes to read: {}",
@@ -60,44 +58,7 @@ fn main() {
             port.clear(serialport::ClearBuffer::Input)
                 .expect("Failed to discard buffer");
         }
-        match chan_clear_buf.try_recv() {
-            Ok(_) => {
-                println!("Discarding buffer!");
-                port.clear(serialport::ClearBuffer::Input)
-                    .expect("Failed to discard buffer");
-            }
-            Err(mpsc::TryRecvError::Empty) => (),
-            Err(mpsc::TryRecvError::Disconnected) => {
-                println!("Stopping");
-                break;
-            }
-        }
 
         thread::sleep(Duration::from_millis(100));
     }
-}
-
-// taken from https://gitlab.com/susurrus/serialport-rs/-/blob/master/examples/clear_input_buffer.rs
-//
-// Including this makes this susceptible to being released under the MPL 2.0,
-// but if this is what I think it is, it's only handling the keyboard input
-// part of the code, and can safely be discarded in future commits.
-fn input_service() -> mpsc::Receiver<()> {
-    let (tx, rx) = mpsc::channel();
-    thread::spawn(move || {
-        let mut buffer = [0; 32];
-        loop {
-            // Blocking!
-            match io::stdin().read(&mut buffer) {
-                Ok(0) => {
-                    drop(tx); // EOF, drop the channel and stop the thread
-                    break;
-                }
-                Ok(_) => tx.send(()).unwrap(), // signal main to clear buffer
-                Err(e) => panic!(e),
-            }
-        }
-    });
-
-    rx
 }
