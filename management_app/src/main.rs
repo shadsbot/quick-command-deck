@@ -20,11 +20,88 @@ struct Button {
     log_message: Option<String>,
     label: Option<String>,
     icon: Option<Vec<u8>>,
+    report_message: Option<Vec<String>>,
+}
+
+impl Button {
+    fn execute_command(&self) {
+        // Command can be manipulated so that the target process is
+        // spawned on the right shell for the right system, however
+        // it may be easier for the user to understand what's going
+        // on if what they put in the config.toml is exactly what's
+        // going to be executed.
+        //
+        // NB: You are straight up running commands through a shell
+        // for this part. That's kind of the entire point, but it
+        // goes without saying that this is a potential security
+        // concern and should be treated carefully.
+        if self.command.is_some() {
+            // toml wraps the command in quotes, which screws with
+            // the std::process::Command::new().args call
+            let command = self.command.clone().unwrap();
+            let command = &command[1..command.len() - 1];
+
+            #[cfg(target_family = "windows")]
+            let cmd_out = std::process::Command::new("cmd")
+                .args(["/C", command])
+                .output()
+                .expect(
+                    format!(
+                        "Something went wrong executing your command. Tried `{}`",
+                        self.command.clone().unwrap()
+                    )
+                    .as_str(),
+                );
+
+            #[cfg(target_family = "unix")]
+            let cmd_out = std::process::Command::new("sh")
+                .args(&["-c", command])
+                .output()
+                .and_then(|r| match r.status.success() {
+                    true => Ok(r),
+                    false => {
+                        error!("Something went wrong executing your command.");
+                        error!("{}", String::from_utf8_lossy(&r.stderr));
+                        Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Error executing command",
+                        ))
+                    }
+                })
+                .unwrap();
+
+            info!("Executed `{}` which returned `{}`", command, cmd_out.status);
+        }
+    }
+    fn build_response(&self, notif_time_ms: u32) -> DisplayText {
+        let mut msg = DisplayText::new();
+        msg.set_line1(
+            self.report_message
+                .as_ref()
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .to_string(),
+        );
+        msg.set_line2(
+            self.report_message
+                .as_ref()
+                .unwrap()
+                .get(1)
+                .unwrap()
+                .to_string(),
+        );
+        msg.set_duration_ms(notif_time_ms.try_into().unwrap_or_default());
+
+        return msg;
+    }
 }
 
 struct Config {
     port: PathBuf,
     baudrate: u32,
+    notif_time_ms: u32,
+    send_completed_notifs: bool,
 }
 
 struct ParsedToml {
@@ -48,6 +125,12 @@ fn read_toml() -> ParsedToml {
         baudrate: value["config"]["baudrate"]
             .as_integer()
             .unwrap_or_else(|| 115200) as u32,
+        notif_time_ms: value["config"]["notif_time_ms"]
+            .as_integer()
+            .unwrap_or_else(|| 500) as u32,
+        send_completed_notifs: value["config"]["send_completed_notifs"]
+            .as_bool()
+            .unwrap_or_default(),
     };
 
     let buttons: Vec<Button> = value["commands"]
@@ -91,6 +174,22 @@ fn read_toml() -> ParsedToml {
                 ),
                 None => None,
             },
+            report_message: match key_pair.get("report_message") {
+                Some(v) => {
+                    let mut lines = Vec::<String>::new();
+                    for line in v.as_array()
+                        .unwrap()
+                        {
+                            lines.push(line.as_str().unwrap_or_default().to_owned());
+                        };
+                    Some(lines)
+                }
+                None => if config.send_completed_notifs {
+                    panic!("Config issue: Notifs configured to send but no notif message found to send")
+                } else {
+                    None
+                },
+            },
         })
         .collect();
 
@@ -102,7 +201,7 @@ fn read_toml() -> ParsedToml {
 
 fn main() {
     pretty_env_logger::init();
-    info!("Grabbing options from config file");
+    trace!("Grabbing options from config file");
     let options = read_toml();
     info!("Starting up Management App");
     let _ports = serialport::available_ports().expect("No Ports Found");
@@ -139,49 +238,26 @@ fn main() {
                             info!(
                                 "{}",
                                 this.log_message
+                                    .clone()
                                     .unwrap_or(format!("Button match for {}", this.id))
                             );
-                            if this.command.is_some() {
-                                // Command can be manipulated so that the target process is
-                                // spawned on the right shell for the right system, however
-                                // it may be easier for the user to understand what's going
-                                // on if what they put in the config.toml is exactly what's
-                                // going to be executed.
-                                //
-                                // NB: You are straight up running commands through a shell
-                                // for this part. That's kind of the entire point, but it
-                                // goes without saying that this is a potential security
-                                // concern and should be treated carefully.
-                                let command = this.command.clone().unwrap();
-                                // toml wraps the command in quotes, which screws with the
-                                // std::process::Command::new().args call
-                                let command = &command[1..command.len()-1];
-                                #[cfg(target_family = "windows")]
-                                let cmd_out = std::process::Command::new("cmd")
-                                    .args(["/C", command])
-                                    .output()
-                                    .expect(format!("Something went wrong executing your command. Tried `{}`", this.command.clone().unwrap()).as_str());
-                                #[cfg(target_family = "unix")]
-                                let cmd_out = std::process::Command::new("sh")
-                                    // .arg("-c")
-                                    .args(&["-c", command])
-                                    // .arg(this.command.clone().unwrap())
-                                    .output()
-                                    .and_then(|r| match r.status.success() {
-                                        true => Ok(r),
-                                        false => {
-                                            error!("Something went wrong executing your command.");
-                                            error!("{}", String::from_utf8_lossy(&r.stderr));
-                                            Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Error executing command"))
-                                        },
-                                    }).unwrap();
-                                info!(
-                                    "Executed `{}`, which returned `{}`",
-                                    command,
-                                    cmd_out.status
-                                )
+                            this.execute_command();
+                            if options.config.send_completed_notifs {
+                                trace!("Sending response message");
+                                match port
+                                    .write(
+                                        this.build_response(options.config.notif_time_ms)
+                                            .write_to_bytes()
+                                            .unwrap()
+                                            .as_mut_slice(),
+                                    )
+                                    .is_ok()
+                                {
+                                    true => info!("Response message sent successfully"),
+                                    false => warn!("Message failed to send"),
+                                }
                             }
-                            todo!("Implement the protobuf response to the microcontroller");
+                            return this;
                         })
                         .collect();
                     if results.len() == 0 {
