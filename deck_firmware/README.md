@@ -30,3 +30,6 @@ Regardless of the debate of what is and is not firmware, this is software that l
     > 
     > 3. This notice may not be removed or altered from any source 
     >    distribution.
+
+### Notes About Hardware
+For the Cherry MX Brown switches, the lower of the two pins is what's connected to ground.
