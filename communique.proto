@@ -7,9 +7,8 @@ message ButtonPushed {
 
 // Sent from recieving software to arduino firmware as an acknowledgement
 message DisplayText {
-    string line1 = 1; // LINE 1 TEXT HERE
-    string line2 = 2; // LINE 2 TEXT HERE
-    int32 brightness = 3; // brightness of 1602A backlight. Not sure if this is viable yet.
-    int32 duration_ms = 4; // milliseconds to display message
-    bool flash_led = 5; // may or may not have an LED
+    repeated string line = 1;
+    int32 brightness = 2; // brightness of 1602A backlight. Not sure if this is viable yet.
+    int32 duration_ms = 3; // milliseconds to display message
+    bool flash_led = 4; // may or may not have an LED
 }

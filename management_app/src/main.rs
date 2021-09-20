@@ -7,7 +7,7 @@ extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
 
-use protobuf::Message;
+use protobuf::{Message, RepeatedField};
 use protos::communique::{ButtonPushed, DisplayText};
 
 use toml::Value;
@@ -75,22 +75,9 @@ impl Button {
     }
     fn build_response(&self, notif_time_ms: u32) -> DisplayText {
         let mut msg = DisplayText::new();
-        msg.set_line1(
-            self.report_message
-                .as_ref()
-                .unwrap()
-                .get(0)
-                .unwrap()
-                .to_string(),
-        );
-        msg.set_line2(
-            self.report_message
-                .as_ref()
-                .unwrap()
-                .get(1)
-                .unwrap()
-                .to_string(),
-        );
+        msg.set_line(RepeatedField::from_vec(
+            self.report_message.clone().unwrap(),
+        ));
         msg.set_duration_ms(notif_time_ms.try_into().unwrap_or_default());
 
         return msg;
