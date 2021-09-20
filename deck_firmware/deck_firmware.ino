@@ -17,18 +17,14 @@ class BadVec
   public:
     void push_back(char* v, int passed_in_length) {
       _elements++;
-      // get rid of garbage data
-      for (int i = 0; i < DISPLAY_COLUMNS; i++) {
-        _storage[_elements][i] = ' ';
-      }
       for (int i = 0; i < DISPLAY_COLUMNS; i++) {
         if (i < passed_in_length) {
           _storage[_elements][i] = v[i];
         } else {
+          // clear garbage data
           _storage[_elements][i] = ' ';
         }
       }
-      //strcpy(_storage[_elements], v);      
     }
     char** get(int index) {
       if (index >= 0) {
@@ -70,11 +66,11 @@ KeyButton buttons[] = { KeyButton(6), KeyButton(7), KeyButton(8) };
 // Callback handling for how nanopb handles strings
 bool read_string(pb_istream_t *stream, const pb_field_iter_t *field, void **arg) {
   while (stream->bytes_left) {
-    // Should dump whatever's in stream into *arg.
-    // Not really safe
     char* line[DISPLAY_COLUMNS] = {""};
     int stream_size = stream->bytes_left;
+    // Should dump whatever's in stream into a buffer
     pb_read(stream, *line, stream->bytes_left);
+    // Dump that buffer into an array
     static_cast<BadVec*>(*arg)->push_back(*line, stream_size);
   }
   return true;
@@ -109,6 +105,7 @@ void loop() {
       DisplayText msg = DisplayText_init_zero;
       pb_istream_t stream = pb_istream_from_buffer(buffer, sizeof(buffer));
 
+      // Display's lines to show
       BadVec lines;
       msg.line.funcs.decode = &read_string;
       msg.line.arg = &lines;
