@@ -1,0 +1,3 @@
+[submodule "deck_firmware/nanopb"]
+	path = deck_firmware/nanopb
+	url = https://github.com/nanopb/nanopb
