@@ -2,37 +2,53 @@
 #include "pb_decode.h"
 #include "communique.pb.h"
 
+#include <LiquidCrystal.h>
+
 // Global Constants disgused as program settings
 const int NUMBER_OF_BUTTONS = 3;
 const unsigned long BUTTON_BOUNCE_DELAY = 500;
 const int DISPLAY_COLUMNS = 16;
 const int DISPLAY_ROWS = 2;
 
+const int LCD_RS = 12;
+const int LCD_EN = 11;
+const int LCD_DATA_1 = 5;
+const int LCD_DATA_2 = 4;
+const int LCD_DATA_3 = 3;
+const int LCD_DATA_4 = 2;
+const int LCD_BRIGHTNESS = 10;
+const int LCD_CONTRAST = 9;
+const int LCD_FADETIME = 35; // 0 for instant. Blocking.
+
+LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_DATA_1, LCD_DATA_2, LCD_DATA_3, LCD_DATA_4);
+
 class BadVec
 {
   private:
-    char* _storage[DISPLAY_ROWS][DISPLAY_COLUMNS];
+    char _storage[DISPLAY_ROWS][DISPLAY_COLUMNS];
     int _elements = -1;
   
   public:
-    void push_back(char* v, int passed_in_length) {
-      _elements++;
-      for (int i = 0; i < DISPLAY_COLUMNS; i++) {
-        if (i < passed_in_length) {
-          _storage[_elements][i] = v[i];
-        } else {
-          // clear garbage data
-          _storage[_elements][i] = ' ';
+    void push_back(char *v, int passed_in_length)
+    {
+        _elements++;
+        for (int i = 0; i < DISPLAY_COLUMNS; i++)
+        {
+            _storage[_elements][i] = v[i];
         }
-      }
+        if (passed_in_length < DISPLAY_COLUMNS) {
+          for (int i = passed_in_length; i < DISPLAY_COLUMNS; i++) {
+            _storage[_elements][i] = " ";
+          }
+        }
     }
-    char** get(int index) {
+    char* get(int index) {
       if (index >= 0) {
         return _storage[index];
       }
     }
     int length() {
-      return _elements;
+      return _elements+1; // avoid off-by-one
     }
 };
 
@@ -78,8 +94,52 @@ bool read_string(pb_istream_t *stream, const pb_field_iter_t *field, void **arg)
 
 // Called once on startup
 void setup() {
+    LCD_Init();
     Serial.begin(115200);
     while(!Serial); // wait for serial connection
+    lcd.print("Connected!      ");
+    lcd.setCursor(0,1);
+    lcd.print("Awaiting command");
+    LCD_fadeout();
+}
+
+void LCD_Init() {
+    // initialize screen
+    lcd.begin(DISPLAY_COLUMNS, DISPLAY_ROWS);
+    pinMode(LCD_CONTRAST, OUTPUT);
+    pinMode(LCD_BRIGHTNESS, OUTPUT);
+    digitalWrite(LCD_CONTRAST, LOW);
+    lcd.print("Initializing");
+    lcd.setCursor(0,1);
+    lcd.print("serial conn");  
+    lcd.setCursor(0,0);
+    LCD_fadein();
+}
+
+void LCD_fadeout() {
+  for (int l = 51; l > -1; l--) {
+    analogWrite(LCD_BRIGHTNESS, l * 5);
+    delay(LCD_FADETIME);
+  }
+}
+
+void LCD_fadein() {
+  for (int l = 0; l < 51; l++) {
+    analogWrite(LCD_BRIGHTNESS, l * 5);
+    delay(LCD_FADETIME);
+  }  
+}
+
+void LCD_clear() {
+  char clearStr[DISPLAY_COLUMNS];
+  for (int i = 0; i < DISPLAY_COLUMNS; i++) {
+    clearStr[i] = " ";
+  }
+  for (int i = 0; i < DISPLAY_ROWS; i++) {
+    lcd.setCursor(0,i);
+    lcd.print(clearStr);
+  }
+  lcd.setCursor(0,0);
 }
 
 // Called every tick
@@ -112,6 +172,16 @@ void loop() {
 
       // And the actual decode attempt
       auto status = pb_decode(&stream, DisplayText_fields, &msg);
+
+      // Display it on the LCD
+      LCD_clear();
+      for (int i = 0; i < lines.length(); i++) {
+        lcd.setCursor(0,i);
+        lcd.print((char*)lines.get(i));
+      }
+      LCD_fadein();
+      delay(1000);
+      LCD_fadeout();
     }
   }
 }
