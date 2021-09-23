@@ -33,3 +33,16 @@ Regardless of the debate of what is and is not firmware, this is software that l
 
 ### Notes About Hardware
 For the Cherry MX Brown switches, the lower of the two pins is what's connected to ground.
+
+#### Generating the Protobufs for the Hardware
+Because of size and memory limitations, we need to use `nanopb` to generate and use the protobufs from the `../communique.proto` file. Included in the nanopb repo is a script, `generator/nanopb_generator.py` which will be able to generate the `communique.pb.c` and `communique.pb.h` files.
+
+The command I use to generate them locally is: 
+
+```
+nanopb_generator.py \
+    --output-dir=${workspaceFolder}/deck_firmware/ \
+    --options-path=${workspaceFolder} \
+    ${workspaceFolder}/communique.proto
+```
+The generated `communique.pb.h` file also has `#include <pb.h>` in its header, but since we've symlinked the files for building we need to change this line to be `#include "./pb.h"`
