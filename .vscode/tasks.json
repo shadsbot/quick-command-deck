@@ -1,0 +1,53 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Generate Firmware ProtoBufs",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "nanopb_generator.py",
+                "--output-dir=${workspaceFolder}/deck_firmware/",
+                "--options-path=${workspaceFolder}",
+                "${workspaceFolder}/communique.proto"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/deck_firmware/nanopb/generator"
+            },
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "Fix <include> to be 'include'",
+            "type": "shell",
+            "command": "sed -i 's/<pb.h>/\".\\/pb.h\"/' communique.pb.h",
+            "options": {
+                "cwd": "${workspaceFolder}/deck_firmware/"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+        },
+        {
+            "label": "Rebuild Firmware ProtoBufs",
+            "dependsOn": [
+                "Generate Firmware ProtoBufs",
+                "Fix <include> to be 'include'"
+            ],
+            "dependsOrder": "sequence"
+        }
+    ]
+}
