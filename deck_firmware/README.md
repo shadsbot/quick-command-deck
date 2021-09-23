@@ -9,7 +9,7 @@ Half of the project is the physical hardware itself. This is where the firmware 
 Regardless of the debate of what is and is not firmware, this is software that lives on the microcontroller and should be pretty permanent once finished. Depending on who you ask, this isn't firmware and I can be inclined to agree. For now, that's just what I'm calling it because it's a clear distinction between this and the software being written for the other end.
 
 ### Libraries Used
-- [nanopb/nanopb](https://github.com/nanopb/nanopb) - I've included the files for this because setting it up for the IDE I'm using was kind of a pain. nanopb is licensed under the [zlib license](https://github.com/nanopb/nanopb/blob/master/LICENSE.txt) (reproduced below), which allows modification and distribution of their code.
+- [nanopb/nanopb](https://github.com/nanopb/nanopb) - I've included the files for this because setting it up for the IDE I'm using was kind of a pain. nanopb is licensed under the [zlib license](https://github.com/nanopb/nanopb/blob/master/LICENSE.txt) (reproduced below), which allows modification and distribution of their code. It's included in this codebase as a submodule with symlinks to the used files. You'll need to check it out with `git pull --recurse-submodules`, or with `git clone --recurse-submodules` during the initial clone. 
     > Copyright (c) 2011 Petteri Aimonen <jpa at nanopb.mail.kapsi.fi>
     >
     > This software is provided 'as-is', without any express or 
