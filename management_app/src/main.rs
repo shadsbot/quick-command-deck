@@ -1,4 +1,6 @@
-use std::{convert::TryInto, fs, io::Read, path::PathBuf, str::FromStr, thread, time::Duration};
+use std::{
+    convert::TryInto, fs, io::Read, path::PathBuf, str::FromStr, sync::mpsc, thread, time::Duration,
+};
 
 mod protos;
 
@@ -78,8 +80,8 @@ impl Button {
         msg.set_line(RepeatedField::from_vec(
             self.report_message.clone().unwrap(),
         ));
+        msg.set_brightness(150);
         msg.set_duration_ms(notif_time_ms.try_into().unwrap_or_default());
-
         return msg;
     }
 }
@@ -207,52 +209,33 @@ fn main() {
         "Sitting in main loop, waiting for data to come through on {}",
         options.config.port.to_str().unwrap_or("config.toml")
     );
-    loop {
+
+    // Talk between threads to send DisplayText from anywhere to microcontroller
+    let (dptx, dprx) = mpsc::channel::<DisplayText>();
+    let (bptx, bprx) = mpsc::channel::<ButtonPushed>();
+
+    // https://doc.rust-lang.org/std/sync/mpsc/struct.Sender.html
+    let dptx_button_reply = dptx.clone();
+
+    // Communication thread
+    // Responsible for talking to the microcontroller
+    let comms = thread::spawn(move || loop {
+        // Got a message from the microcontroller, attempt to route it
         let bytes_to_read = port.bytes_to_read().unwrap();
         if bytes_to_read > 0 {
             info!("Heard {} bytes", bytes_to_read);
+            let bytes_to_read = bytes_to_read.clone();
             let mut serial_buf: Vec<u8> = vec![0; bytes_to_read.try_into().unwrap()];
+            // Potentially blocking
             port.read(&mut serial_buf).expect("No Data");
+            trace!(
+                "Got: {:?}",
+                String::from_utf8_lossy(serial_buf.clone().as_mut_slice())
+            );
             match ButtonPushed::parse_from_bytes(serial_buf.as_mut_slice()) {
                 Ok(bp) => {
                     info!("Button recognized as {}", bp.get_number());
-                    let results: Vec<Button> = options
-                        .buttons
-                        .clone()
-                        .into_iter()
-                        .filter(|this| this.id == bp.get_number() as u8)
-                        .map(|this| {
-                            info!(
-                                "{}",
-                                this.log_message
-                                    .clone()
-                                    .unwrap_or(format!("Button match for {}", this.id))
-                            );
-                            this.execute_command();
-                            if options.config.send_completed_notifs {
-                                trace!("Sending response message");
-                                match port
-                                    .write(
-                                        this.build_response(options.config.notif_time_ms)
-                                            .write_to_bytes()
-                                            .unwrap()
-                                            .as_mut_slice(),
-                                    )
-                                    .is_ok()
-                                {
-                                    true => info!("Response message sent successfully"),
-                                    false => warn!("Message failed to send"),
-                                }
-                            }
-                            return this;
-                        })
-                        .collect();
-                    if results.len() == 0 {
-                        error!(
-                            "Unable to parse protobuf reply. ID {} not found",
-                            bp.get_number()
-                        );
-                    }
+                    bptx.send(bp).ok();
                 }
                 Err(e) => {
                     warn!("Unable to parse protobuf from bytes. Is this the wrong device? More info: {}", e);
@@ -262,6 +245,69 @@ fn main() {
                 .expect("Failed to discard buffer");
         }
 
+        // Got a message locally, attempt to pass it through
+        let attempt = dprx.try_recv();
+        if !attempt.is_err() {
+            let attempt = attempt.unwrap();
+            match port
+                .write(attempt.write_to_bytes().unwrap().as_mut_slice())
+                .is_ok()
+            {
+                true => trace!("Sent message to microcontroller"),
+                false => warn!(
+                    "Unable to send message to microcontroller! Attempted to send: {:?}",
+                    attempt.write_to_bytes().unwrap()
+                ),
+            }
+        }
+
+        // Don't run to death
         thread::sleep(Duration::from_millis(100));
-    }
+    });
+
+    // Button Handling
+    // When a button is pushed, get a message from the Communication thread
+    // and handle it here. Then, send a response back.
+    let buttons = thread::spawn(move || loop {
+        // Blocks until we get a message
+        let msg = bprx.recv();
+        if !msg.is_err() {
+            let msg = msg.unwrap();
+            let results: Vec<Button> = options
+                .buttons
+                .clone()
+                .into_iter()
+                .filter(|this| this.id == msg.get_number() as u8)
+                .map(|this| {
+                    info!(
+                        "{}",
+                        this.log_message
+                            .clone()
+                            .unwrap_or(format!("Button match for {}", this.id))
+                    );
+                    this.execute_command();
+                    if options.config.send_completed_notifs {
+                        trace!("Sending response message");
+                        dptx_button_reply
+                            .send(this.build_response(options.config.notif_time_ms))
+                            .ok();
+                    }
+                    return this;
+                })
+                .collect();
+            if results.len() == 0 {
+                error!(
+                    "Unable to parse protobuf reply. ID {} not found.",
+                    msg.get_number()
+                );
+            }
+        }
+    });
+
+    comms
+        .join()
+        .expect("Communication issue occured with controller.");
+    buttons
+        .join()
+        .expect("Unknown issue with primary button handling thread.");
 }
