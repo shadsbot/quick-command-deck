@@ -246,8 +246,10 @@ void loop() {
       if (lines.length() > 0) {
         LCD_clear();
         for (int i = 0; i < lines.length(); i++) {
-          lcd.setCursor(0,i);
-          lcd.print((char*)lines.get(i));
+          if (i < DISPLAY_ROWS) {
+            lcd.setCursor(0,i);
+            lcd.print((char*)lines.get(i));          
+          }
         }
         LCD_TARGET = msg.brightness;
         MESSAGE_RECEIVED = true;
