@@ -14,6 +14,9 @@ use protos::communique::{ButtonPushed, DisplayText};
 
 use toml::Value;
 
+#[cfg(feature = "dbus")]
+mod optional_features;
+
 #[derive(Clone, Debug)]
 
 struct Button {
@@ -224,7 +227,6 @@ fn main() {
         let bytes_to_read = port.bytes_to_read().unwrap();
         if bytes_to_read > 0 {
             info!("Heard {} bytes", bytes_to_read);
-            let bytes_to_read = bytes_to_read.clone();
             let mut serial_buf: Vec<u8> = vec![0; bytes_to_read.try_into().unwrap()];
             // Potentially blocking
             port.read(&mut serial_buf).expect("No Data");
@@ -303,6 +305,21 @@ fn main() {
             }
         }
     });
+
+    // Messages from dbus
+    // Example usage: If a chat message is left unread for a while,
+    // send it to be physically displayed
+    #[cfg(feature = "dbus")]
+    {
+        let dbus_message_sender = dptx.clone();
+        let dbus = thread::spawn(move || {
+            let conn = optional_features::dbus_integration::listener::connect(dbus_message_sender);
+            if conn.is_err() {
+                error!("Cannot connect to dbus. {}", conn.err().unwrap())
+            }
+        });
+        dbus.join().expect("Could not connect to dbus");
+    }
 
     comms
         .join()

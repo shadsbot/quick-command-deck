@@ -12,6 +12,11 @@ protobuf = "2.25.1"
 log = "0.4"
 pretty_env_logger = { version = "0.4" }
 toml = "0.5"
+dbus = {version = "0.9.5", optional = true}
+dbus-crossroads = {version = "0.5.0", optional = true}
+
+[features]
+dbus_integration = ["dbus", "dbus-crossroads"]
 
 [build-dependencies]
 protobuf-codegen-pure = "2.25.1"
