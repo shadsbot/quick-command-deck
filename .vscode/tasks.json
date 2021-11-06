@@ -39,7 +39,7 @@
                 "panel": "shared",
                 "showReuseMessage": false,
                 "clear": false
-            },
+            }
         },
         {
             "label": "Rebuild Firmware ProtoBufs",
@@ -48,6 +48,24 @@
                 "Fix <include> to be 'include'"
             ],
             "dependsOrder": "sequence"
+        },
+        {
+            "type": "cargo",
+            "command": "check --all-features",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": "build",
+            "label": "rust: cargo check"
+        },
+        {
+            "type": "cargo",
+            "command": "build --all-features",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": "build",
+            "label": "rust: cargo build"
         }
     ]
 }
