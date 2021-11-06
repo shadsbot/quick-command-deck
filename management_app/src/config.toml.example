@@ -1,39 +1,50 @@
 [config]
+# Port which to connect the device
+# *nix systems should be some variation of /dev/ttyUSBX
+# Windows systems should be some variation of COMX
 port = "/dev/ttyUSB0"
+# How quickly to talk to the device. Default should be 115200
 baudrate = 115200
+# Whether or not to respond to the device that the action has
+# been carried out
+send_completed_notifs = true
 
-[commands]
+    [config.display]
+    # Whether or not a display is connected to the device
+    connected = true
+    # Number of lines are available on the device display
+    lines = 2
+    # Number of columns (characters) are available on the device display
+    columns = 16
+    # Length of time for a notification to stay up on the device 
+    notif_time_ms = 500
 
-    [commands.button_1]
-    id = 1
-    # Command to run when button pushed
-    command = "echo button 1"
-    # Message to log internally
-    log_message = "Doing thing 1"
-    # Icon to display above label
-    icon = [
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0
-    ]
-    # Label when idle
-    label = "1"
+# Commands should be repeated for as many buttons exist on the device
+# and will be operate based on a first-defined basis. e.g. command 1
+# will correspond to button_1, the second defined command will correspond
+# to button_2 on the device, etc.
+#
+# Commands have the following attributes:
+#     command: The actual command to be run when the corresponding button
+#              is pressed. 
+#     log_message: What will be logged internally once the command is 
+#                  completed. If a message is longer than the number of
+#                  columns set above, it will carry over to the next line.
+#                  If there are more lines than the number allowed above,
+#                  the message will be truncated.
+#     report_message: The message to be sent back to the device once the
+#                     command is completed.
+[[command]]
+command = "echo button 1"
+log_message = "Doing thing 1"
+report_message = ["Thing done", ""]
 
-    [commands.button_2]
-    id = 2
-    command = "echo button 2"
-    log_message = "Doing thing 2"
-    icon = []
-    label = "2"
+[[command]]
+command = "echo button 2"
+log_message = "Doing thing 2"
+report_message = ["Thing 2 done",""]
 
-    [commands.button_3]
-    id = 3
-    command = "echo button 3"
-    log_message = "Doing thing 3"
-    icon = []
-    label = "3"
+[[command]]
+command = "echo button 3"
+log_message = "Doing thing 3"
+report_message = ["",""]

@@ -1,6 +1,4 @@
-use std::{
-    convert::TryInto, fs, io::Read, path::PathBuf, str::FromStr, sync::mpsc, thread, time::Duration,
-};
+use std::{convert::TryInto, io::Read, sync::mpsc, thread, time::Duration};
 
 mod protos;
 
@@ -12,19 +10,18 @@ extern crate log;
 use protobuf::{Message, RepeatedField};
 use protos::communique::{ButtonPushed, DisplayText};
 
-use toml::Value;
+mod config_parser;
+use crate::config_parser::read_toml;
 
 #[cfg(feature = "dbus")]
 mod optional_features;
 
 #[derive(Clone, Debug)]
 
-struct Button {
+pub(crate) struct Button {
     id: u8,
     command: Option<String>,
     log_message: Option<String>,
-    label: Option<String>,
-    icon: Option<Vec<u8>>,
     report_message: Option<Vec<String>>,
 }
 
@@ -43,8 +40,7 @@ impl Button {
         if self.command.is_some() {
             // toml wraps the command in quotes, which screws with
             // the std::process::Command::new().args call
-            let command = self.command.clone().unwrap();
-            let command = &command[1..command.len() - 1];
+            let command = self.command.as_ref().unwrap().as_str();
 
             #[cfg(target_family = "windows")]
             let cmd_out = std::process::Command::new("cmd")
@@ -86,108 +82,6 @@ impl Button {
         msg.set_brightness(150);
         msg.set_duration_ms(notif_time_ms.try_into().unwrap_or_default());
         return msg;
-    }
-}
-
-struct Config {
-    port: PathBuf,
-    baudrate: u32,
-    notif_time_ms: u32,
-    send_completed_notifs: bool,
-}
-
-struct ParsedToml {
-    buttons: Vec<Button>,
-    config: Config,
-}
-
-fn read_toml() -> ParsedToml {
-    let value = fs::read_to_string("src/config.toml")
-        .expect("Couldn't read file")
-        .parse::<Value>()
-        .unwrap();
-    let config: Config = Config {
-        port: match PathBuf::from_str(value["config"]["port"].as_str().unwrap()) {
-            Ok(path) => path,
-            Err(err) => {
-                error!("Couldn't find or open config file. {}", err);
-                std::process::exit(1);
-            }
-        },
-        baudrate: value["config"]["baudrate"]
-            .as_integer()
-            .unwrap_or_else(|| 115200) as u32,
-        notif_time_ms: value["config"]["notif_time_ms"]
-            .as_integer()
-            .unwrap_or_else(|| 500) as u32,
-        send_completed_notifs: value["config"]["send_completed_notifs"]
-            .as_bool()
-            .unwrap_or_default(),
-    };
-
-    let buttons: Vec<Button> = value["commands"]
-        .as_table()
-        .unwrap()
-        .into_iter()
-        .map(|tuple| tuple.1)
-        .map(|key_pair| Button {
-            id: match key_pair.get("id") {
-                Some(v) => match v.as_integer() {
-                    Some(v) => v as u8,
-                    None => {
-                        error!("Found a button without a valid ID! IDs can only be integers.");
-                        panic!("Invalid ID found in config.toml.");
-                    }
-                },
-                None => {
-                    error!("Found a button without a valid ID! IDs can only be integers.");
-                    panic!("Invalid ID found in config.toml.");
-                }
-            },
-            command: match key_pair.get("command") {
-                Some(v) => Some(v.to_string()),
-                None => None,
-            },
-            log_message: match key_pair.get("log_message") {
-                Some(v) => Some(v.to_string()),
-                None => None,
-            },
-            label: match key_pair.get("label") {
-                Some(v) => Some(v.to_string()),
-                None => None,
-            },
-            icon: match key_pair.get("icon") {
-                Some(v) => Some(
-                    v.as_array()
-                        .unwrap()
-                        .into_iter()
-                        .map(|index_value| index_value.as_integer().unwrap() as u8)
-                        .collect(),
-                ),
-                None => None,
-            },
-            report_message: match key_pair.get("report_message") {
-                Some(v) => {
-                    let mut lines = Vec::<String>::new();
-                    for line in v.as_array()
-                        .unwrap()
-                        {
-                            lines.push(line.as_str().unwrap_or_default().to_owned());
-                        };
-                    Some(lines)
-                }
-                None => if config.send_completed_notifs {
-                    panic!("Config issue: Notifs configured to send but no notif message found to send")
-                } else {
-                    None
-                },
-            },
-        })
-        .collect();
-
-    ParsedToml {
-        buttons: buttons,
-        config: config,
     }
 }
 
@@ -290,9 +184,8 @@ fn main() {
                     this.execute_command();
                     if options.config.send_completed_notifs {
                         trace!("Sending response message");
-                        dptx_button_reply
-                            .send(this.build_response(options.config.notif_time_ms))
-                            .ok();
+                        // cdiener fixme
+                        dptx_button_reply.send(this.build_response(500)).ok();
                     }
                     return this;
                 })
