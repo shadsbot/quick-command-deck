@@ -74,12 +74,12 @@ impl Button {
             info!("Executed `{}` which returned `{}`", command, cmd_out.status);
         }
     }
-    fn build_response(&self, notif_time_ms: u32) -> DisplayText {
+    fn build_response(&self, brightness: u32, notif_time_ms: u32) -> DisplayText {
         let mut msg = DisplayText::new();
         msg.set_line(RepeatedField::from_vec(
             self.report_message.clone().unwrap(),
         ));
-        msg.set_brightness(150);
+        msg.set_brightness(brightness.try_into().unwrap_or_default());
         msg.set_duration_ms(notif_time_ms.try_into().unwrap_or_default());
         return msg;
     }
@@ -184,8 +184,12 @@ fn main() {
                     this.execute_command();
                     if options.config.send_completed_notifs {
                         trace!("Sending response message");
-                        // cdiener fixme
-                        dptx_button_reply.send(this.build_response(500)).ok();
+                        dptx_button_reply
+                            .send(this.build_response(
+                                options.config.display.brightness,
+                                options.config.display.notif_time_ms,
+                            ))
+                            .ok();
                     }
                     return this;
                 })

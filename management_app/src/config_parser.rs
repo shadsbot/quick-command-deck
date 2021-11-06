@@ -13,6 +13,7 @@ pub(crate) struct Display {
     pub(crate) lines: u32,
     pub(crate) columns: u32,
     pub(crate) notif_time_ms: u32,
+    pub(crate) brightness: u32,
 }
 
 pub(crate) struct Config {
@@ -57,6 +58,9 @@ pub(crate) fn read_toml() -> ParsedToml {
             notif_time_ms: value["config"]["display"]["notif_time_ms"]
                 .as_integer()
                 .unwrap_or_else(|| 500) as u32,
+            brightness: value["config"]["display"]["brightness"]
+                .as_integer()
+                .unwrap_or_else(|| 255) as u32,
         },
 
         send_completed_notifs: value["config"]["send_completed_notifs"]

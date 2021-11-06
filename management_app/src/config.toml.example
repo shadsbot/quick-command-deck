@@ -18,6 +18,8 @@ send_completed_notifs = true
     columns = 16
     # Length of time for a notification to stay up on the device 
     notif_time_ms = 500
+    # Brightness of the display, if supported. Usually 0: dark, 255: max
+    brightness = 255
 
 # Commands should be repeated for as many buttons exist on the device
 # and will be operate based on a first-defined basis. e.g. command 1
